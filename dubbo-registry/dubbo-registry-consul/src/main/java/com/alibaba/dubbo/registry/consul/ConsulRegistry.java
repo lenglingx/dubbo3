@@ -23,6 +23,7 @@ import com.alibaba.dubbo.registry.support.FailbackRegistry;
 import com.ecwid.consul.v1.ConsulClient;
 import com.ecwid.consul.v1.agent.model.NewService;
 
+import java.util.Arrays;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
@@ -55,12 +56,25 @@ public class ConsulRegistry extends FailbackRegistry {
 
     @Override
     protected void doRegister(URL url) {
-        NewService consulService = new NewService();
-        consulService.setAddress(url.toFullString());
-        consulService.setPort(url.getPort());
-        consulService.setId(convertConsulSerivceId(url));
-        consulService.setName(url.getServiceInterface());
-        consulClient.agentServiceRegister(consulService);
+        NewService dubboService = new NewService();
+        dubboService.setTags(Arrays.asList("dubbo"));
+        dubboService.setAddress(url.toFullString());
+        dubboService.setPort(url.getPort());
+        dubboService.setId(convertConsulSerivceId(url));
+        dubboService.setName(url.getServiceInterface());
+        //set health checker
+        String dubboHTTPCheckURL = System.getProperty("DUBBO_HTTP_CHECK_URL");
+        if (dubboHTTPCheckURL == null) {
+            dubboHTTPCheckURL = System.getenv("DUBBO_HTTP_CHECK_URL");
+        }
+        if (dubboHTTPCheckURL != null) {
+            NewService.Check check = new NewService.Check();
+            check.setHttp(dubboHTTPCheckURL);
+            check.setInterval("15s");
+            check.setTimeout("3s");
+            dubboService.setCheck(check);
+        }
+        consulClient.agentServiceRegister(dubboService);
     }
 
     @Override
